@@ -149,6 +149,10 @@ for (i in 1:nrow(com_mat)) {
   }
 }
 
+# write out to save for other uses
+write.csv(com_mat, file = "sub2_community_matrix_organized.csv")
+
+
 
 #-----------------------------------------------
 # Bray-Curtis Dissimilarities Between Replicates
