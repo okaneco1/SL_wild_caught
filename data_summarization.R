@@ -2,6 +2,8 @@
 
 # Load libraries and data
 library(tidyverse)
+library(openxlsx)
+
 
 com_mat_sub1 <- read_csv(file = "sub1_community_matrix_organized.csv")
 com_mat_sub2 <- read_csv(file = "sub2_community_matrix_organized.csv")
@@ -105,28 +107,124 @@ OTU_barchart <- function(lake_id, year_id, phase_id) {
 
 
 # save all to a PDF
-save_all_plots_to_pdf <- function() {
-  # set up PDF device
-  pdf("summary_plots/OTU_barcharts_summary.pdf")
-  
-  # generate and save each plot
-  OTU_barchart("Champlain", 2022, "Adult")
-  OTU_barchart("Champlain", 2023, "Adult")
-  OTU_barchart("Huron", 2022, "Adult")
-  OTU_barchart("Huron", 2023, "Adult")
-  OTU_barchart("Superior", 2022, "Adult")
-  OTU_barchart("Superior", 2023, "Adult")
-  
-  OTU_barchart("Champlain", 2022, "Parasitic")
-  OTU_barchart("Champlain", 2023, "Parasitic")
-  OTU_barchart("Huron", 2022, "Parasitic")
-  OTU_barchart("Huron", 2023, "Parasitic")
-  OTU_barchart("Superior", 2022, "Parasitic")
-  OTU_barchart("Superior", 2023, "Parasitic")
-  
-  # close PDF device
-  dev.off()
+
+# set up PDF device
+pdf("summary_plots/OTU_barcharts_summary.pdf")
+
+# generate and save each plot
+OTU_barchart("Champlain", 2022, "Adult")
+OTU_barchart("Champlain", 2023, "Adult")
+OTU_barchart("Huron", 2022, "Adult")
+OTU_barchart("Huron", 2023, "Adult")
+OTU_barchart("Superior", 2022, "Adult")
+OTU_barchart("Superior", 2023, "Adult")
+
+OTU_barchart("Champlain", 2022, "Parasitic")
+OTU_barchart("Champlain", 2023, "Parasitic")
+OTU_barchart("Huron", 2022, "Parasitic")
+OTU_barchart("Huron", 2023, "Parasitic")
+OTU_barchart("Superior", 2022, "Parasitic")
+OTU_barchart("Superior", 2023, "Parasitic")
+
+# close PDF device
+dev.off()
+
+
+
+
+# Proportion of Positive Detections ----------------------------
+
+# objective is to show the proportion of samples (lamprey) that test positive
+# for each detected prey species (in either of both replicates)
+
+threshold <- 20  # lowest read count for detection
+rra <- 0.01  # lowest relative read abundance for detection
+
+# create a detection matrix (binary detections instead of sequence reads)
+detection_matrix <- com_mat_full %>%
+  mutate(across(Salmonidae_unclassified:last_col(), 
+                ~ ifelse(. > threshold & . > (rra * total_reads), 1, 0)))
+
+# adding to excel spreadsheet, with green highlighting for detections
+# create workbook
+wb <- createWorkbook()
+addWorksheet(wb, "Detections")
+# write data to worksheet
+writeData(wb, "Detections", detection_matrix)
+# define the green fill style for detections (1)
+green_style <- createStyle(bgFill = "#C6EFCE", fgFill = "#006100")
+# apply conditional formatting to OTU cells
+conditionalFormatting(wb, "Detections", cols = 7:ncol(detection_matrix), 
+                      rows = 2:(nrow(detection_matrix) + 1),
+                      rule = "==1", style = green_style)
+# save workbook
+saveWorkbook(wb, "OTU_detections.xlsx", overwrite = TRUE)
+
+# Now, creating barcharts that look at the proportion of samples that test
+# positive for each OTU
+
+# can simplify to only OTUs that had a detection at least once
+detection_matrix_filtered <- detection_matrix %>%
+  select(Salmonidae_unclassified:Micropterus_unclassified) %>%
+  select(where(~ sum(.) > 0)) %>%
+  bind_cols(detection_matrix %>% 
+              select(sample_id, replicate, sample_name, lake, year, phase), .)
+
+# function for making a proportion bar chart
+OTU_proportion_barchart <- function(lake_id, year_id, phase_id) {
+  # filter to specific samples
+  specified_samples <- detection_matrix_filtered %>%
+    filter(lake == lake_id,
+           year == year_id,
+           phase == phase_id)
+  # get sample size
+  n <- nrow(specified_samples) # 63 total OTUs
+  # select OTUs 
+  otus <- specified_samples %>%
+    select(-sample_name, -sample_id, -replicate, -lake, -phase, -year)
+  # proportion of samples per otu
+  proportions <- data.frame(proportion = colSums(otus)/n) %>%
+    rownames_to_column(var = "otu")
+  # reverse order
+  proportions$otu <- factor(proportions$otu, levels = rev(proportions$otu))
+  # create barplot
+  #plot <-
+  ggplot(proportions, aes(x = proportion, y = otu)) +
+    geom_bar(stat = "identity") +
+    labs(title = paste0(lake_id," ", year_id, ", ", phase_id, " (n = ", n, ")"),
+         x = "Proportion of Lamprey With Positive Detections",
+         y = "OTU (Operational Taxonomic Unit")+
+    xlim(0,1)
+  # save plot
+  #ggsave(filename = paste0("summary_plots/", lake_id, "_", year_id, "_", phase_id, "_summary.png"),
+  #plot = plot, width = 8, height = 6)
 }
 
-# run the function
-save_all_plots_to_pdf()
+# set up PDF device
+pdf("proportion_plots/OTU_proportion_barcharts_summary.pdf")
+
+# generate and save each plot
+OTU_proportion_barchart("Champlain", 2022, "Adult")
+OTU_proportion_barchart("Champlain", 2023, "Adult")
+OTU_proportion_barchart("Huron", 2022, "Adult")
+OTU_proportion_barchart("Huron", 2023, "Adult")
+OTU_proportion_barchart("Superior", 2022, "Adult")
+OTU_proportion_barchart("Superior", 2023, "Adult")
+
+# OTU_proportion_barchart("Champlain", 2022, "Parasitic") # no samples
+OTU_proportion_barchart("Champlain", 2023, "Parasitic")
+OTU_proportion_barchart("Huron", 2022, "Parasitic")
+OTU_proportion_barchart("Huron", 2023, "Parasitic")
+OTU_proportion_barchart("Superior", 2022, "Parasitic")
+OTU_proportion_barchart("Superior", 2023, "Parasitic")
+
+# close PDF device
+dev.off()
+
+
+
+
+
+
+
+
