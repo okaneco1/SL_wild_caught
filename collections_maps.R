@@ -23,7 +23,7 @@ lakes <- rnaturalearth::ne_download(scale = 10,
   sf::st_as_sf(lakes110, crs = 4269)
 
 
-# LAKE HURONO
+# LAKE HURON
 lake_huron <- data.frame(
   river = c("Carp River", "Cheboygan River"),
   latitude = c(46.0129,45.6561),
