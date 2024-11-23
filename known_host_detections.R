@@ -134,9 +134,16 @@ write_csv(known_host_data, file = "known_host_data.csv")
 
 
 #----------------------------------------------------------
-# also just checking 
+# also just checking for total non-detections
+adult_non_detections <- detection_data %>%
+  filter(phase == "Adult") %>%
+  filter(total_detections == 0) %>%
+  nrow()
 
-
+parasitic_non_detections <- detection_data %>%
+  filter(phase == "Parasitic") %>%
+  filter(total_detections == 0) %>%
+  nrow()
 
 
 
